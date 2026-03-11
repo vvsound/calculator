@@ -351,27 +351,23 @@ static void ApplyTheme() {
 // ════════════════════════════════════════════════════════
 static void HandleClick(const wchar_t* label)
 {
-    // --- 音效（异步）---
-    AsyncPlay([label]() {
-        if (label[0] >= L'0' && label[0] <= L'9' && label[1] == 0) {
-            PlayDigitChinese(label[0] - L'0');
-        } else if (label[0] == L'.' && label[1] == 0) {
-            PlayTone(370, 65, 0.40f);
-        } else if (label[0] == L'+' || label[0] == L'-' ||
-                   label[0] == L'×' || label[0] == L'÷' ||
-                   label[0] == L'%') {
-            wchar_t op = label[0];
-            if (op == L'×') op = L'*';
-            if (op == L'÷') op = L'/';
-            PlayOpSound(op);
-        } else if (label[0] == L'=') {
-            PlayEqualSound();
-        } else if (label[0] == L'←' || label[0] == L'C') {
-            PlayDeleteSound();
-        } else if (label[0] == L'±') {
-            PlayTone(480, 75);
+    // --- 音效（异步，拷贝 label 字符串避免指针悬空）---
+    std::wstring lbl(label);
+    std::thread([lbl]() {
+        wchar_t c0 = lbl.empty() ? 0 : lbl[0];
+        if (c0 >= L'0' && c0 <= L'9' && lbl.size() == 1) {
+            PlayDigitChinese(c0 - L'0');
+        } else if (lbl == L".")  { PlayTone(370, 65, 0.40f);
+        } else if (lbl == L"+")  { PlayTone(520, 90);
+        } else if (lbl == L"-")  { PlayTone(440, 90);
+        } else if (lbl == L"×")  { PlayTone(600, 90);
+        } else if (lbl == L"÷")  { PlayTone(380, 90);
+        } else if (lbl == L"%")  { PlayTone(350, 80);
+        } else if (lbl == L"=")  { PlayEqualSound();
+        } else if (lbl == L"←" || lbl == L"C") { PlayDeleteSound();
+        } else if (lbl == L"±")  { PlayTone(480, 80);
         }
-    });
+    }).detach();
 
     // --- 逻辑 ---
     std::wstring& expr = g_expr;
@@ -511,27 +507,27 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     {
     case WM_CREATE: {
         // 字体
-        g_fontSmall = CreateFontW(-16,0,0,0,FW_NORMAL,0,0,0,
+        g_fontSmall = CreateFontW(-24,0,0,0,FW_BOLD,0,0,0,
             DEFAULT_CHARSET,0,0,CLEARTYPE_QUALITY,0,L"Consolas");
-        g_fontLarge = CreateFontW(-48,0,0,0,FW_BOLD,0,0,0,
+        g_fontLarge = CreateFontW(-64,0,0,0,FW_BOLD,0,0,0,
             DEFAULT_CHARSET,0,0,CLEARTYPE_QUALITY,0,L"Consolas");
-        g_fontBtn   = CreateFontW(-22,0,0,0,FW_BOLD,0,0,0,
+        g_fontBtn   = CreateFontW(-30,0,0,0,FW_BOLD,0,0,0,
             DEFAULT_CHARSET,0,0,CLEARTYPE_QUALITY,0,L"Segoe UI");
 
         // 过程行
         g_hProc = CreateWindowExW(0,L"STATIC",L"",
             WS_CHILD|WS_VISIBLE|SS_RIGHT,
-            10,10,380,28,hwnd,(HMENU)ID_PROC,nullptr,nullptr);
+            10,10,380,36,hwnd,(HMENU)ID_PROC,nullptr,nullptr);
         SendMessageW(g_hProc, WM_SETFONT, (WPARAM)g_fontSmall, TRUE);
 
         // 结果行
         g_hRes = CreateWindowExW(0,L"STATIC",L"0",
             WS_CHILD|WS_VISIBLE|SS_RIGHT,
-            10,42,380,70,hwnd,(HMENU)ID_RES,nullptr,nullptr);
+            10,50,380,90,hwnd,(HMENU)ID_RES,nullptr,nullptr);
         SendMessageW(g_hRes, WM_SETFONT, (WPARAM)g_fontLarge, TRUE);
 
         // 按钮  (每格 95×88，间距 5)
-        const int BW=93, BH=86, GAP=5, OX=10, OY=125;
+        const int BW=93, BH=86, GAP=5, OX=10, OY=158;
         for (int i = 0; i < BTN_COUNT; i++) {
             auto& b = BUTTONS[i];
             int x = OX + b.col * (BW + GAP);
