@@ -12,10 +12,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Compile
+      - name: Compile resource file
         run: |
           $env:PATH = "C:\ProgramData\Chocolatey\lib\mingw\tools\install\mingw64\bin;" + $env:PATH
-          g++ JSQ.cpp -o JSQ.exe -mwindows -lwinmm -municode -std=c++17 -static -static-libgcc -static-libstdc++
+          windres sounds.rc -o sounds.o
+
+      - name: Compile JSQ.exe
+        run: |
+          $env:PATH = "C:\ProgramData\Chocolatey\lib\mingw\tools\install\mingw64\bin;" + $env:PATH
+          g++ JSQ.cpp sounds.o -o JSQ.exe -mwindows -lwinmm -municode -std=c++17 -static -static-libgcc -static-libstdc++
 
       - name: Upload
         uses: actions/upload-artifact@v4
