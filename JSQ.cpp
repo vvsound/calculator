@@ -39,116 +39,46 @@
 #pragma comment(linker,"/subsystem:windows")
 
 // ════════════════════════════════════════════════════════
-//  PCM 正弦波合成 & 播放（不需要任何音频文件）
+//  音效：WAV 文件通过 RC 资源嵌入 .exe，运行时从内存播放
+//  资源 ID 约定：
+//    100=0.wav 101=1.wav ... 109=9.wav
+//    110=add  111=sub  112=mul  113=div  114=eq  115=clr
 // ════════════════════════════════════════════════════════
-// PlayTone: 用 waveOut PCM 合成；若失败自动降级为 Beep()
-static void PlayTone(int freqHz, int durationMs, float volume = 0.45f)
+
+// 从 exe 资源中读取 WAV 数据并播放（异步）
+static void PlayWavResource(int resId)
 {
-    const int SR = 44100;
-    int n = SR * durationMs / 1000;
-    if (n <= 0) return;
-    std::vector<short> buf(n);
-    for (int i = 0; i < n; i++) {
-        double t   = (double)i / SR;
-        double env = (i < n * 0.1) ? (double)i / (n * 0.1)          // 淡入
-                   : (i > n * 0.8) ? (double)(n - i) / (n * 0.2)    // 淡出
-                   : 1.0;
-        buf[i] = (short)(32767.0 * volume * env * sin(2.0 * M_PI * freqHz * t));
-    }
-    WAVEFORMATEX wfx = {};
-    wfx.wFormatTag      = WAVE_FORMAT_PCM;
-    wfx.nChannels       = 1;
-    wfx.nSamplesPerSec  = SR;
-    wfx.wBitsPerSample  = 16;
-    wfx.nBlockAlign     = 2;
-    wfx.nAvgBytesPerSec = SR * 2;
-
-    HWAVEOUT hwo = nullptr;
-    if (waveOutOpen(&hwo, WAVE_MAPPER, &wfx, 0, 0, CALLBACK_NULL) != MMSYSERR_NOERROR) {
-        // 降级：直接用系统 Beep
-        Beep(std::max(37, freqHz), durationMs);
-        return;
-    }
-    WAVEHDR hdr = {};
-    hdr.lpData         = reinterpret_cast<LPSTR>(buf.data());
-    hdr.dwBufferLength = (DWORD)(n * sizeof(short));
-    waveOutPrepareHeader(hwo, &hdr, sizeof(hdr));
-    waveOutWrite(hwo, &hdr, sizeof(hdr));
-    // 等待完成，最多等 3 秒防死锁
-    for (int t2 = 0; t2 < 600 && !(hdr.dwFlags & WHDR_DONE); t2++)
-        Sleep(5);
-    waveOutUnprepareHeader(hwo, &hdr, sizeof(hdr));
-    waveOutClose(hwo);
+    HINSTANCE hInst = GetModuleHandleW(nullptr);
+    HRSRC hRes = FindResourceW(hInst, MAKEINTRESOURCEW(resId), L"WAVE");
+    if (!hRes) return;
+    HGLOBAL hGlob = LoadResource(hInst, hRes);
+    if (!hGlob) return;
+    void* pData = LockResource(hGlob);
+    DWORD size  = SizeofResource(hInst, hRes);
+    if (!pData || size == 0) return;
+    // SND_MEMORY | SND_ASYNC: 从内存异步播放
+    PlaySoundA((LPCSTR)pData, nullptr, SND_MEMORY | SND_ASYNC | SND_NODEFAULT);
 }
-
-// 播放和弦（多音依次快速叠加，模拟和声感）
-static void PlayChord(const std::vector<std::pair<int,int>>& notes)
-{
-    for (auto& [f, d] : notes)
-        PlayTone(f, d, 0.38f);
-}
-
-// 异步播放（不阻塞 UI 线程）
-static void AsyncPlay(std::function<void()> fn)
-{
-    std::thread([fn]{ fn(); }).detach();
-}
-
-// ════════════════════════════════════════════════════════
-//  中文数字朗读（用音调序列模拟）
-//  每个汉字用一段特征音调+短停顿表现节奏感
-// ════════════════════════════════════════════════════════
-struct SyllableTone { int freq; int ms; };
-
-// 仿普通话四声的特征频率序列
-// 一(yī) 二(èr) 三(sān) 四(sì) 五(wǔ) 六(liù) 七(qī) 八(bā) 九(jiǔ) 零(líng)
-static const std::vector<SyllableTone> CN_TONES[] = {
-    /*零0*/ {{320,50},{360,60},{320,50}},   // 二声 líng: 低→高→中
-    /*一1*/ {{500,150}},                     // 一声 yī:   高平长音
-    /*二2*/ {{260,40},{480,120}},            // 二声 èr:   低跳高
-    /*三3*/ {{480,150}},                     // 一声 sān:  高平长音（比一略低）
-    /*四4*/ {{520,35},{240,100}},            // 四声 sì:   高急降
-    /*五5*/ {{300,40},{240,50},{380,80}},    // 三声 wǔ:   降再升
-    /*六6*/ {{500,30},{220,110}},            // 四声 liù:  高急降
-    /*七7*/ {{520,150}},                     // 一声 qī:   最高平音
-    /*八8*/ {{460,150}},                     // 一声 bā:   高平音
-    /*九9*/ {{260,40},{460,120}},            // 二声 jiǔ:  低跳高
-};
 
 static void PlayDigitChinese(int digit)
 {
-    // digit 0-9
-    const auto& seq = CN_TONES[digit % 10];
-    for (auto& s : seq)
-        PlayTone(s.freq, s.ms, 0.50f);
+    // 0→ID 100, 1→101, ..., 9→109
+    PlayWavResource(100 + (digit % 10));
 }
 
-// 运算符音效
 static void PlayOpSound(wchar_t op)
 {
-    switch(op) {
-        case L'+': PlayTone(520, 80); break;
-        case L'-': PlayTone(440, 80); break;
-        case L'*': PlayTone(600, 80); break;
-        case L'/': PlayTone(380, 80); break;
-        case L'%': PlayTone(350, 70); break;
+    switch(op){
+        case L'+': PlayWavResource(110); break; // add.wav
+        case L'-': PlayWavResource(111); break; // sub.wav
+        case L'*': PlayWavResource(112); break; // mul.wav
+        case L'/': PlayWavResource(113); break; // div.wav
     }
 }
 
-static void PlayEqualSound()
-{
-    PlayChord({{523,70},{659,70},{784,140}});
-}
-
-static void PlayDeleteSound()
-{
-    PlayTone(260, 90);
-}
-
-static void PlayErrorSound()
-{
-    PlayTone(200,120); PlayTone(180,200);
-}
+static void PlayEqualSound()  { PlayWavResource(114); } // eq.wav
+static void PlayDeleteSound() { PlayWavResource(115); } // clr.wav
+static void PlayErrorSound()  { PlayWavResource(114); } // 复用 eq.wav
 
 // ════════════════════════════════════════════════════════
 //  表达式求值（手写递归下降）
