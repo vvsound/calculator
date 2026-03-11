@@ -14,9 +14,10 @@
 #define UNICODE
 #define _UNICODE
 #define WIN32_LEAN_AND_MEAN
+#define _USE_MATH_DEFINES   // 让 MSVC/MinGW 都能用 M_PI
 
 #include <windows.h>
-#include <mmsystem.h>       // PlaySound / waveOut
+#include <mmsystem.h>
 #include <commctrl.h>
 #include <string>
 #include <sstream>
@@ -27,6 +28,11 @@
 #include <map>
 #include <thread>
 #include <cstring>
+#include <functional>       // std::function
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 #pragma comment(lib,"winmm.lib")
 #pragma comment(lib,"comctl32.lib")
