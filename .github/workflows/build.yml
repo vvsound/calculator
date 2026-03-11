@@ -4,16 +4,23 @@ on:
   push:
     branches: [ main ]
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install MinGW
-        run: choco install mingw -y
+      - name: Setup MinGW
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: mingw-w64-x86_64-gcc
 
       - name: Compile
+        shell: msys2 {0}
         run: g++ JSQ.cpp -o JSQ.exe -mwindows -lwinmm -municode -std=c++17
 
       - name: Upload artifact
