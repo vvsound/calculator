@@ -1,5 +1,5 @@
-// sounds.rc - 把 WAV 文件嵌入 .exe 资源
-// 编译：windres sounds.rc -o sounds.o
+// sounds.rc - WAV + 图标 嵌入 exe
+1 ICON "calculator.ico"
 
 100 WAVE "0.wav"
 101 WAVE "1.wav"
