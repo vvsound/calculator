@@ -253,7 +253,7 @@ static LRESULT CALLBACK WndProc(HWND hw,UINT msg,WPARAM wp,LPARAM lp){
         g_hRes =CreateWindowExW(0,L"STATIC",L"0",WS_CHILD|WS_VISIBLE|SS_RIGHT,8,44,384,88,hw,(HMENU)ID_RES,nullptr,nullptr);
         SendMessageW(g_hProc,WM_SETFONT,(WPARAM)g_fSmall,TRUE);
         SendMessageW(g_hRes, WM_SETFONT,(WPARAM)g_fLarge,TRUE);
-        const int BW=92,BH=90,GAP=4,OX=6,OY=142;
+        const int BW=96,BH=90,GAP=4,OX=6,OY=142;
         for(int i=0;i<NBTN;i++){
             int x=OX+BTNS[i].col*(BW+GAP), y=OY+BTNS[i].row*(BH+GAP);
             g_hBtns[i]=CreateWindowExW(0,L"BUTTON",BTNS[i].lbl,WS_CHILD|WS_VISIBLE|BS_OWNERDRAW,
@@ -333,7 +333,7 @@ int WINAPI wWinMain(HINSTANCE hi,HINSTANCE,LPWSTR,int){
     RegisterClassExW(&wc);
 
     int sw=GetSystemMetrics(SM_CXSCREEN), sh=GetSystemMetrics(SM_CYSCREEN);
-    int ww=408, wh=660;
+    int ww=408, wh=614;
     g_hWnd=CreateWindowExW(WS_EX_APPWINDOW|WS_EX_TOPMOST,L"Calc",L"计算器",
         WS_POPUP|WS_VISIBLE,
         (sw-ww)/2,(sh-wh)/2,ww,wh,nullptr,nullptr,hi,nullptr);
