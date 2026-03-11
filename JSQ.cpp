@@ -6,7 +6,6 @@
 #define WIN32_LEAN_AND_MEAN
 
 #include <windows.h>
-#include <shellapi.h>
 #include <mmsystem.h>
 #include <string>
 #include <cmath>
@@ -42,14 +41,15 @@ static void PlayEqual()  { PlayWav(114, true); }  // 同步，确保能播完
 static void PlayDelete() { PlayWav(115); }
 static void PlayError()  { PlayWav(114); }
 
-// 逐位朗读结果数字（在新线程中同步播放，不阻塞UI）
+// 逐位朗读结果数字
 static void SpeakResult(const std::wstring& result) {
     std::wstring s = result;
     std::thread([s](){
         for (wchar_t c : s) {
-            if (c >= L'0' && c <= L'9')
-                PlayWav(100 + (c - L'0'), true);  // 同步逐字播放
-            // 负号、小数点跳过
+            if (c >= L'0' && c <= L'9') {
+                PlayWav(100 + (c - L'0'), true);
+                Sleep(50);   // 字间隔50ms，紧凑不拖沓
+            }
         }
     }).detach();
 }
@@ -127,7 +127,7 @@ static COLORREF Dim(COLORREF c, double f=0.72){
 enum BK { BK_NUM, BK_OP, BK_EQ, BK_DEL, BK_PCT };
 struct Btn { const wchar_t* lbl; int row,col; BK kind; };
 static const Btn BTNS[] = {
-    {L"C",0,0,BK_DEL},{L"←",0,1,BK_DEL},{L"%",0,2,BK_PCT},{L"÷",0,3,BK_OP},
+    {L"C",0,0,BK_DEL},{L"←",0,1,BK_DEL},{L"÷",0,2,BK_OP}, {L"✕",0,3,BK_DEL},
     {L"7",1,0,BK_NUM},{L"8",1,1,BK_NUM},{L"9",1,2,BK_NUM},{L"×",1,3,BK_OP},
     {L"4",2,0,BK_NUM},{L"5",2,1,BK_NUM},{L"6",2,2,BK_NUM},{L"-",2,3,BK_OP},
     {L"1",3,0,BK_NUM},{L"2",3,1,BK_NUM},{L"3",3,2,BK_NUM},{L"+",3,3,BK_OP},
@@ -178,6 +178,7 @@ static void OnClick(const wchar_t* lbl){
     // 逻辑
     std::wstring& e=g_expr;
     if(c==L'C'){ e.clear(); SetProc(L""); SetRes(L"0"); }
+    else if(wcscmp(lbl,L"✕")==0){ DestroyWindow(g_hWnd); return; }
     else if(c==L'←'){ if(!e.empty())e.pop_back(); SetProc(e); SetRes(e.empty()?L"0":e); }
     else if(c==L'='){
         if(e.empty())return;
@@ -273,6 +274,11 @@ static LRESULT CALLBACK WndProc(HWND hw,UINT msg,WPARAM wp,LPARAM lp){
         static HBRUSH br=nullptr; if(br)DeleteObject(br);
         br=CreateSolidBrush(t.dispBg); return (LRESULT)br;
     }
+    case WM_LBUTTONDOWN:
+        // 无标题栏时拖动窗口
+        ReleaseCapture();
+        SendMessageW(hw,WM_NCLBUTTONDOWN,HTCAPTION,0);
+        return 0;
     case WM_ERASEBKGND:{
         RECT rc; GetClientRect(hw,&rc);
         HBRUSH br=CreateSolidBrush(THEMES[g_theme].bg);
@@ -325,18 +331,13 @@ int WINAPI wWinMain(HINSTANCE hi,HINSTANCE,LPWSTR,int){
     wc.hCursor=LoadCursorW(nullptr,IDC_ARROW);
     wc.hbrBackground=CreateSolidBrush(THEMES[g_theme].bg);
     wc.lpszClassName=L"Calc";
-    HICON ico=nullptr;
-    wchar_t calcPath[MAX_PATH]={};
-    ExpandEnvironmentStringsW(L"%SystemRoot%\\System32\\calc.exe",calcPath,MAX_PATH);
-    ExtractIconExW(calcPath,0,&ico,nullptr,1);
-    if(!ico) ExtractIconExW(L"shell32.dll",19,&ico,nullptr,1);
-    wc.hIcon=ico?ico:LoadIconW(nullptr,IDI_APPLICATION);
+    wc.hIcon=LoadIconW(GetModuleHandleW(nullptr),MAKEINTRESOURCEW(1));
     RegisterClassExW(&wc);
 
     int sw=GetSystemMetrics(SM_CXSCREEN), sh=GetSystemMetrics(SM_CYSCREEN);
     int ww=408, wh=660;
     g_hWnd=CreateWindowExW(WS_EX_APPWINDOW|WS_EX_TOPMOST,L"Calc",L"计算器",
-        WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX,
+        WS_POPUP|WS_VISIBLE,
         (sw-ww)/2,(sh-wh)/2,ww,wh,nullptr,nullptr,hi,nullptr);
 
     ShowWindow(g_hWnd,SW_SHOW); UpdateWindow(g_hWnd); SetForegroundWindow(g_hWnd);
