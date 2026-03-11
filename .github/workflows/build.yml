@@ -15,7 +15,7 @@ jobs:
       - name: Compile
         run: |
           $env:PATH = "C:\ProgramData\Chocolatey\lib\mingw\tools\install\mingw64\bin;" + $env:PATH
-          g++ JSQ.cpp -o JSQ.exe -mwindows -lwinmm -municode -std=c++17
+          g++ JSQ.cpp -o JSQ.exe -mwindows -lwinmm -municode -std=c++17 -static -static-libgcc -static-libstdc++
 
       - name: Upload
         uses: actions/upload-artifact@v4
