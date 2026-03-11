@@ -66,7 +66,7 @@ static void PlayTone(int freqHz, int durationMs, float volume = 0.45f)
     HWAVEOUT hwo = nullptr;
     if (waveOutOpen(&hwo, WAVE_MAPPER, &wfx, 0, 0, CALLBACK_NULL) != MMSYSERR_NOERROR) {
         // 降级：直接用系统 Beep
-        Beep(max(37, freqHz), durationMs);
+        Beep(std::max(37, freqHz), durationMs);
         return;
     }
     WAVEHDR hdr = {};
