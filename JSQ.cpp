@@ -3,11 +3,10 @@
  * 编译: g++ JSQ.cpp sounds.o -o JSQ.exe -mwindows -lwinmm -municode -std=c++17 -static -static-libgcc -static-libstdc++
  */
 
-#define UNICODE
-#define _UNICODE
 #define WIN32_LEAN_AND_MEAN
 
 #include <windows.h>
+#include <shellapi.h>
 #include <mmsystem.h>
 #include <string>
 #include <cmath>
