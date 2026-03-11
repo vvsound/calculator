@@ -125,6 +125,7 @@ static std::wstring g_expr;
 static HWND g_hWnd, g_hProc, g_hRes, g_hBtns[NBTN];
 static HFONT g_fSmall, g_fLarge, g_fBtn;
 static int g_hot = -1;
+static bool g_numlockOff = false; // --numlock-off 参数控制
 
 static void SetProc(const std::wstring& s){ SetWindowTextW(g_hProc,s.c_str()); }
 static void SetRes (const std::wstring& s){ SetWindowTextW(g_hRes, s.c_str()); }
@@ -304,7 +305,7 @@ static LRESULT CALLBACK WndProc(HWND hw,UINT msg,WPARAM wp,LPARAM lp){
         return 0;
     }
     case WM_DESTROY:
-        if(GetKeyState(VK_NUMLOCK)&1){
+        if(g_numlockOff && (GetKeyState(VK_NUMLOCK)&1)){
             keybd_event(VK_NUMLOCK,0x45,0,0);
             keybd_event(VK_NUMLOCK,0x45,KEYEVENTF_KEYUP,0);
         }
@@ -314,8 +315,12 @@ static LRESULT CALLBACK WndProc(HWND hw,UINT msg,WPARAM wp,LPARAM lp){
 }
 
 // ── 入口 ─────────────────────────────────────────────────
-int WINAPI wWinMain(HINSTANCE hi,HINSTANCE,LPWSTR,int){
-    // 开启 NumLock
+int WINAPI wWinMain(HINSTANCE hi,HINSTANCE,LPWSTR lpCmd,int){
+    // 解析命令行参数：--numlock-off 退出时关闭 NumLock
+    if(lpCmd && wcsstr(lpCmd, L"--numlock-off"))
+        g_numlockOff = true;
+
+    // 启动时开启 NumLock
     if(!(GetKeyState(VK_NUMLOCK)&1)){
         keybd_event(VK_NUMLOCK,0x45,0,0);
         keybd_event(VK_NUMLOCK,0x45,KEYEVENTF_KEYUP,0);
