@@ -4,26 +4,23 @@ on:
   push:
     branches: [ main ]
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Setup MinGW
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          install: mingw-w64-x86_64-gcc
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install MinGW via winget
+        run: |
+          winget install --id=MSYS2.MSYS2 -e --silent
+          echo "C:\msys64\mingw64\bin" | Out-File -Append -FilePath $env:GITHUB_PATH
 
       - name: Compile
-        shell: msys2 {0}
         run: g++ JSQ.cpp -o JSQ.exe -mwindows -lwinmm -municode -std=c++17
 
-      - name: Upload artifact
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: JSQ-exe
