@@ -12,13 +12,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install MinGW via winget
-        run: |
-          winget install --id=MSYS2.MSYS2 -e --silent
-          echo "C:\msys64\mingw64\bin" | Out-File -Append -FilePath $env:GITHUB_PATH
-
       - name: Compile
-        run: g++ JSQ.cpp -o JSQ.exe -mwindows -lwinmm -municode -std=c++17
+        run: |
+          $env:PATH = "C:\ProgramData\Chocolatey\lib\mingw\tools\install\mingw64\bin;" + $env:PATH
+          g++ JSQ.cpp -o JSQ.exe -mwindows -lwinmm -municode -std=c++17
 
       - name: Upload
         uses: actions/upload-artifact@v4
