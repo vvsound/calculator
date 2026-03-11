@@ -41,44 +41,42 @@
 // ════════════════════════════════════════════════════════
 //  PCM 正弦波合成 & 播放（不需要任何音频文件）
 // ════════════════════════════════════════════════════════
+// PlayTone: 用 waveOut PCM 合成；若失败自动降级为 Beep()
 static void PlayTone(int freqHz, int durationMs, float volume = 0.45f)
 {
-    const int SAMPLE_RATE = 44100;
-    int numSamples = SAMPLE_RATE * durationMs / 1000;
-    std::vector<short> buf(numSamples);
-
-    // 正弦波 + 淡出包络，使声音圆润
-    for (int i = 0; i < numSamples; i++) {
-        double t   = (double)i / SAMPLE_RATE;
-        double env = 1.0;
-        // 后 20% 线性淡出
-        if (i > numSamples * 0.80)
-            env = (double)(numSamples - i) / (numSamples * 0.20);
-        buf[i] = (short)(32767 * volume * env * sin(2.0 * M_PI * freqHz * t));
+    const int SR = 44100;
+    int n = SR * durationMs / 1000;
+    if (n <= 0) return;
+    std::vector<short> buf(n);
+    for (int i = 0; i < n; i++) {
+        double t   = (double)i / SR;
+        double env = (i < n * 0.1) ? (double)i / (n * 0.1)          // 淡入
+                   : (i > n * 0.8) ? (double)(n - i) / (n * 0.2)    // 淡出
+                   : 1.0;
+        buf[i] = (short)(32767.0 * volume * env * sin(2.0 * M_PI * freqHz * t));
     }
-
-    WAVEFORMATEX wfx{};
+    WAVEFORMATEX wfx = {};
     wfx.wFormatTag      = WAVE_FORMAT_PCM;
     wfx.nChannels       = 1;
-    wfx.nSamplesPerSec  = SAMPLE_RATE;
+    wfx.nSamplesPerSec  = SR;
     wfx.wBitsPerSample  = 16;
     wfx.nBlockAlign     = 2;
-    wfx.nAvgBytesPerSec = SAMPLE_RATE * 2;
+    wfx.nAvgBytesPerSec = SR * 2;
 
     HWAVEOUT hwo = nullptr;
-    if (waveOutOpen(&hwo, WAVE_MAPPER, &wfx, 0, 0, CALLBACK_NULL) != MMSYSERR_NOERROR)
+    if (waveOutOpen(&hwo, WAVE_MAPPER, &wfx, 0, 0, CALLBACK_NULL) != MMSYSERR_NOERROR) {
+        // 降级：直接用系统 Beep
+        Beep(max(37, freqHz), durationMs);
         return;
-
-    WAVEHDR hdr{};
+    }
+    WAVEHDR hdr = {};
     hdr.lpData         = reinterpret_cast<LPSTR>(buf.data());
-    hdr.dwBufferLength = (DWORD)(numSamples * sizeof(short));
+    hdr.dwBufferLength = (DWORD)(n * sizeof(short));
     waveOutPrepareHeader(hwo, &hdr, sizeof(hdr));
     waveOutWrite(hwo, &hdr, sizeof(hdr));
-
-    // 等待播放完毕
-    while (!(hdr.dwFlags & WHDR_DONE))
+    // 等待完成，最多等 3 秒防死锁
+    for (int t2 = 0; t2 < 600 && !(hdr.dwFlags & WHDR_DONE); t2++)
         Sleep(5);
-
     waveOutUnprepareHeader(hwo, &hdr, sizeof(hdr));
     waveOutClose(hwo);
 }
@@ -105,16 +103,16 @@ struct SyllableTone { int freq; int ms; };
 // 仿普通话四声的特征频率序列
 // 一(yī) 二(èr) 三(sān) 四(sì) 五(wǔ) 六(liù) 七(qī) 八(bā) 九(jiǔ) 零(líng)
 static const std::vector<SyllableTone> CN_TONES[] = {
-    /*零0*/ {{330,55},{340,55},{330,40}},   // 二声: 中升
-    /*一1*/ {{440,130}},                     // 一声: 高平
-    /*二2*/ {{300,45},{380,100}},            // 二声: 低升
-    /*三3*/ {{400,120}},                     // 一声: 高平
-    /*四4*/ {{420,40},{280,90}},             // 四声: 高降
-    /*五5*/ {{280,50},{300,60},{340,50}},    // 三声: 低降升
-    /*六6*/ {{380,40},{260,90}},             // 四声: 高降
-    /*七7*/ {{440,130}},                     // 一声: 高平
-    /*八8*/ {{420,130}},                     // 一声: 高平
-    /*九9*/ {{300,50},{380,90}},             // 二声: 低升
+    /*零0*/ {{320,50},{360,60},{320,50}},   // 二声 líng: 低→高→中
+    /*一1*/ {{500,150}},                     // 一声 yī:   高平长音
+    /*二2*/ {{260,40},{480,120}},            // 二声 èr:   低跳高
+    /*三3*/ {{480,150}},                     // 一声 sān:  高平长音（比一略低）
+    /*四4*/ {{520,35},{240,100}},            // 四声 sì:   高急降
+    /*五5*/ {{300,40},{240,50},{380,80}},    // 三声 wǔ:   降再升
+    /*六6*/ {{500,30},{220,110}},            // 四声 liù:  高急降
+    /*七7*/ {{520,150}},                     // 一声 qī:   最高平音
+    /*八8*/ {{460,150}},                     // 一声 bā:   高平音
+    /*九9*/ {{260,40},{460,120}},            // 二声 jiǔ:  低跳高
 };
 
 static void PlayDigitChinese(int digit)
@@ -613,6 +611,11 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
     }
 
     case WM_DESTROY:
+        // 退出时关闭 NumLock
+        if (GetKeyState(VK_NUMLOCK) & 1) {
+            keybd_event(VK_NUMLOCK, 0x45, 0, 0);
+            keybd_event(VK_NUMLOCK, 0x45, KEYEVENTF_KEYUP, 0);
+        }
         PostQuitMessage(0);
         return 0;
     }
@@ -644,7 +647,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int)
         WS_EX_APPWINDOW,
         L"CalcWnd", L"计算器",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
-        1000, 500, 410, 580,
+        1000, 200, 460, 700,
         nullptr, nullptr, hInst, nullptr
     );
 
