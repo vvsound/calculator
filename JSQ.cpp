@@ -12,30 +12,47 @@
 #include <cmath>
 #include <stdexcept>
 #include <vector>
+#include <thread>
 
 #pragma comment(lib,"winmm.lib")
 #pragma comment(linker,"/subsystem:windows")
 
 // ── 资源 ID：WAV 文件嵌入 exe ────────────────────────────
 // 100-109 = 0-9.wav, 110=add, 111=sub, 112=mul, 113=div, 114=eq, 115=clr
-static void PlayWav(int id) {
+static void PlayWav(int id, bool sync=false) {
     HINSTANCE hi = GetModuleHandleW(nullptr);
     HRSRC hr = FindResourceW(hi, MAKEINTRESOURCEW(id), L"WAVE");
     if (!hr) return;
     void* p = LockResource(LoadResource(hi, hr));
     DWORD n  = SizeofResource(hi, hr);
-    if (p && n) PlaySoundA((LPCSTR)p, nullptr, SND_MEMORY|SND_ASYNC|SND_NODEFAULT);
+    if (p && n) {
+        DWORD flags = SND_MEMORY|SND_NODEFAULT;
+        flags |= sync ? SND_SYNC : SND_ASYNC;
+        PlaySoundA((LPCSTR)p, nullptr, flags);
+    }
 }
-static void PlayDigit(int d)      { PlayWav(100 + d); }
+static void PlayDigit(int d)   { PlayWav(100 + d); }
 static void PlayOp(wchar_t op) {
     if (op==L'+') PlayWav(110);
     else if (op==L'-') PlayWav(111);
     else if (op==L'*') PlayWav(112);
     else if (op==L'/') PlayWav(113);
 }
-static void PlayEqual()  { PlayWav(114); }
+static void PlayEqual()  { PlayWav(114, true); }  // 同步，确保能播完
 static void PlayDelete() { PlayWav(115); }
 static void PlayError()  { PlayWav(114); }
+
+// 逐位朗读结果数字（在新线程中同步播放，不阻塞UI）
+static void SpeakResult(const std::wstring& result) {
+    std::wstring s = result;
+    std::thread([s](){
+        for (wchar_t c : s) {
+            if (c >= L'0' && c <= L'9')
+                PlayWav(100 + (c - L'0'), true);  // 同步逐字播放
+            // 负号、小数点跳过
+        }
+    }).detach();
+}
 
 // ── 表达式求值 ───────────────────────────────────────────
 struct Parser {
@@ -168,7 +185,8 @@ static void OnClick(const wchar_t* lbl){
             double r=Parser(PrepareExpr(e)).parse();
             std::wstring out=FmtResult(r);
             SetProc(e+L" ="); e=out; SetRes(out);
-            PlayEqual();
+            PlayEqual();        // 播"等于"
+            SpeakResult(out);   // 逐位朗读结果
         }catch(...){
             PlayError(); SetProc(e+L" = ?"); SetRes(L"错误"); e.clear();
         }
@@ -308,7 +326,10 @@ int WINAPI wWinMain(HINSTANCE hi,HINSTANCE,LPWSTR,int){
     wc.hbrBackground=CreateSolidBrush(THEMES[g_theme].bg);
     wc.lpszClassName=L"Calc";
     HICON ico=nullptr;
-    ExtractIconExW(L"shell32.dll",135,&ico,nullptr,1);
+    wchar_t calcPath[MAX_PATH]={};
+    ExpandEnvironmentStringsW(L"%SystemRoot%\\System32\\calc.exe",calcPath,MAX_PATH);
+    ExtractIconExW(calcPath,0,&ico,nullptr,1);
+    if(!ico) ExtractIconExW(L"shell32.dll",19,&ico,nullptr,1);
     wc.hIcon=ico?ico:LoadIconW(nullptr,IDI_APPLICATION);
     RegisterClassExW(&wc);
 
