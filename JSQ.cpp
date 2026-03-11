@@ -41,18 +41,7 @@ static void PlayEqual()  { PlayWav(114, true); }  // 同步，确保能播完
 static void PlayDelete() { PlayWav(115); }
 static void PlayError()  { PlayWav(114); }
 
-// 逐位朗读结果数字
-static void SpeakResult(const std::wstring& result) {
-    std::wstring s = result;
-    std::thread([s](){
-        for (wchar_t c : s) {
-            if (c >= L'0' && c <= L'9') {
-                PlayWav(100 + (c - L'0'), true);
-                Sleep(50);   // 字间隔50ms，紧凑不拖沓
-            }
-        }
-    }).detach();
-}
+
 
 // ── 表达式求值 ───────────────────────────────────────────
 struct Parser {
@@ -127,11 +116,11 @@ static COLORREF Dim(COLORREF c, double f=0.72){
 enum BK { BK_NUM, BK_OP, BK_EQ, BK_DEL, BK_PCT };
 struct Btn { const wchar_t* lbl; int row,col; BK kind; };
 static const Btn BTNS[] = {
-    {L"C",0,0,BK_DEL},{L"←",0,1,BK_DEL},{L"÷",0,2,BK_OP}, {L"✕",0,3,BK_DEL},
-    {L"7",1,0,BK_NUM},{L"8",1,1,BK_NUM},{L"9",1,2,BK_NUM},{L"×",1,3,BK_OP},
-    {L"4",2,0,BK_NUM},{L"5",2,1,BK_NUM},{L"6",2,2,BK_NUM},{L"-",2,3,BK_OP},
-    {L"1",3,0,BK_NUM},{L"2",3,1,BK_NUM},{L"3",3,2,BK_NUM},{L"+",3,3,BK_OP},
-    {L"±",4,0,BK_NUM},{L"0",4,1,BK_NUM},{L".",4,2,BK_NUM},{L"=",4,3,BK_EQ},
+    {L"C",0,0,BK_DEL},{L"←",0,1,BK_DEL},{L"÷",0,2,BK_OP},{L"×",0,3,BK_OP},
+    {L"7",1,0,BK_NUM},{L"8",1,1,BK_NUM},{L"9",1,2,BK_NUM},{L"-",1,3,BK_OP},
+    {L"4",2,0,BK_NUM},{L"5",2,1,BK_NUM},{L"6",2,2,BK_NUM},{L"+",2,3,BK_OP},
+    {L"1",3,0,BK_NUM},{L"2",3,1,BK_NUM},{L"3",3,2,BK_NUM},{L"=",3,3,BK_EQ},
+    {L"±",4,0,BK_NUM},{L"0",4,1,BK_NUM},{L".",4,2,BK_NUM},{L"✕",4,3,BK_DEL},
 };
 static const int NBTN = 20;
 
@@ -186,8 +175,17 @@ static void OnClick(const wchar_t* lbl){
             double r=Parser(PrepareExpr(e)).parse();
             std::wstring out=FmtResult(r);
             SetProc(e+L" ="); e=out; SetRes(out);
-            PlayEqual();        // 播"等于"
-            SpeakResult(out);   // 逐位朗读结果
+            // 在后台线程：先播"等于"再立刻逐位读结果，无额外等待
+            std::wstring _out = out;
+            std::thread([_out](){
+                PlayWav(114, true);   // "等于" 同步播完
+                for (wchar_t c : _out) {
+                    if (c >= L'0' && c <= L'9') {
+                        PlayWav(100 + (c - L'0'), true);
+                        Sleep(30);
+                    }
+                }
+            }).detach();
         }catch(...){
             PlayError(); SetProc(e+L" = ?"); SetRes(L"错误"); e.clear();
         }
