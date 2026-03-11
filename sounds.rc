@@ -1,0 +1,19 @@
+// sounds.rc - 把 WAV 文件嵌入 .exe 资源
+// 编译：windres sounds.rc -o sounds.o
+
+100 WAVE "0.wav"
+101 WAVE "1.wav"
+102 WAVE "2.wav"
+103 WAVE "3.wav"
+104 WAVE "4.wav"
+105 WAVE "5.wav"
+106 WAVE "6.wav"
+107 WAVE "7.wav"
+108 WAVE "8.wav"
+109 WAVE "9.wav"
+110 WAVE "add.wav"
+111 WAVE "sub.wav"
+112 WAVE "mul.wav"
+113 WAVE "div.wav"
+114 WAVE "eq.wav"
+115 WAVE "clr.wav"
