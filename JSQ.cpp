@@ -1,7 +1,5 @@
-/*
- * 计算器 - 单文件 C++ / Win32 API
- * 编译: g++ JSQ.cpp sounds.o -o JSQ.exe -mwindows -lwinmm -municode -std=c++17 -static -static-libgcc -static-libstdc++
- */
+// 计算器 v1.0  -  Win32 单文件
+// 编译: g++ JSQ.cpp sounds.o -o JSQ.exe -mwindows -lwinmm -municode -std=c++17 -static -static-libgcc -static-libstdc++
 
 #define WIN32_LEAN_AND_MEAN
 
@@ -40,8 +38,6 @@ static void PlayOp(wchar_t op) {
 static void PlayEqual()  { PlayWav(114, true); }  // 同步，确保能播完
 static void PlayDelete() { PlayWav(115); }
 static void PlayError()  { PlayWav(114); }
-
-
 
 // ── 表达式求值 ───────────────────────────────────────────
 struct Parser {
@@ -182,7 +178,7 @@ static void OnClick(const wchar_t* lbl){
                 for (wchar_t c : _out) {
                     if (c >= L'0' && c <= L'9') {
                         PlayWav(100 + (c - L'0'), true);
-                        Sleep(30);
+                        Sleep(80);
                     }
                 }
             }).detach();
@@ -249,11 +245,11 @@ static LRESULT CALLBACK WndProc(HWND hw,UINT msg,WPARAM wp,LPARAM lp){
         g_fSmall=CreateFontW(-20,0,0,0,FW_NORMAL,0,0,0,DEFAULT_CHARSET,0,0,CLEARTYPE_QUALITY,0,L"Consolas");
         g_fLarge=CreateFontW(-64,0,0,0,FW_BOLD,  0,0,0,DEFAULT_CHARSET,0,0,CLEARTYPE_QUALITY,0,L"Consolas");
         g_fBtn  =CreateFontW(-30,0,0,0,FW_BOLD,  0,0,0,DEFAULT_CHARSET,0,0,CLEARTYPE_QUALITY,0,L"Segoe UI");
-        g_hProc=CreateWindowExW(0,L"STATIC",L"",WS_CHILD|WS_VISIBLE|SS_RIGHT,8,8,384,32,hw,(HMENU)ID_PROC,nullptr,nullptr);
-        g_hRes =CreateWindowExW(0,L"STATIC",L"0",WS_CHILD|WS_VISIBLE|SS_RIGHT,8,44,384,88,hw,(HMENU)ID_RES,nullptr,nullptr);
+        g_hProc=CreateWindowExW(0,L"STATIC",L"",WS_CHILD|WS_VISIBLE|SS_RIGHT,12,12,384,30,hw,(HMENU)ID_PROC,nullptr,nullptr);
+        g_hRes =CreateWindowExW(0,L"STATIC",L"0",WS_CHILD|WS_VISIBLE|SS_RIGHT,12,46,384,84,hw,(HMENU)ID_RES,nullptr,nullptr);
         SendMessageW(g_hProc,WM_SETFONT,(WPARAM)g_fSmall,TRUE);
         SendMessageW(g_hRes, WM_SETFONT,(WPARAM)g_fLarge,TRUE);
-        const int BW=96,BH=90,GAP=4,OX=6,OY=142;
+        const int BW=93,BH=90,GAP=4,OX=12,OY=142;
         for(int i=0;i<NBTN;i++){
             int x=OX+BTNS[i].col*(BW+GAP), y=OY+BTNS[i].row*(BH+GAP);
             g_hBtns[i]=CreateWindowExW(0,L"BUTTON",BTNS[i].lbl,WS_CHILD|WS_VISIBLE|BS_OWNERDRAW,
@@ -333,7 +329,7 @@ int WINAPI wWinMain(HINSTANCE hi,HINSTANCE,LPWSTR,int){
     RegisterClassExW(&wc);
 
     int sw=GetSystemMetrics(SM_CXSCREEN), sh=GetSystemMetrics(SM_CYSCREEN);
-    int ww=408, wh=614;
+    int ww=408, wh=620;
     g_hWnd=CreateWindowExW(WS_EX_APPWINDOW|WS_EX_TOPMOST,L"Calc",L"计算器",
         WS_POPUP|WS_VISIBLE,
         (sw-ww)/2,(sh-wh)/2,ww,wh,nullptr,nullptr,hi,nullptr);
