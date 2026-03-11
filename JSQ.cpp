@@ -279,23 +279,22 @@ static void ApplyTheme() {
 // ════════════════════════════════════════════════════════
 static void HandleClick(const wchar_t* label)
 {
-    // --- 音效（异步，拷贝 label 字符串避免指针悬空）---
-    std::wstring lbl(label);
-    std::thread([lbl]() {
-        wchar_t c0 = lbl.empty() ? 0 : lbl[0];
-        if (c0 >= L'0' && c0 <= L'9' && lbl.size() == 1) {
+    // --- 音效（WAV 资源播放）---
+    {
+        wchar_t c0 = label[0];
+        if (c0 >= L'0' && c0 <= L'9' && label[1] == 0) {
             PlayDigitChinese(c0 - L'0');
-        } else if (lbl == L".")  { PlayTone(370, 65, 0.40f);
-        } else if (lbl == L"+")  { PlayTone(520, 90);
-        } else if (lbl == L"-")  { PlayTone(440, 90);
-        } else if (lbl == L"×")  { PlayTone(600, 90);
-        } else if (lbl == L"÷")  { PlayTone(380, 90);
-        } else if (lbl == L"%")  { PlayTone(350, 80);
-        } else if (lbl == L"=")  { PlayEqualSound();
-        } else if (lbl == L"←" || lbl == L"C") { PlayDeleteSound();
-        } else if (lbl == L"±")  { PlayTone(480, 80);
+        } else if (c0 == L'.')                          { /* 小数点静音 */
+        } else if (c0 == L'+')                          { PlayOpSound(L'+');
+        } else if (c0 == L'-')                          { PlayOpSound(L'-');
+        } else if (c0 == L'×') /* × */               { PlayOpSound(L'*');
+        } else if (c0 == L'÷') /* ÷ */               { PlayOpSound(L'/');
+        } else if (c0 == L'%')                          { /* 百分号静音 */
+        } else if (c0 == L'=')                          { PlayEqualSound();
+        } else if (c0 == L'←' || c0 == L'C')       { PlayDeleteSound();
+        } else if (c0 == L'±') /* ± */               { /* 正负号静音 */
         }
-    }).detach();
+    }
 
     // --- 逻辑 ---
     std::wstring& expr = g_expr;
@@ -320,7 +319,7 @@ static void HandleClick(const wchar_t* label)
             expr = out;
             SetRes(out);
         } catch (...) {
-            AsyncPlay(PlayErrorSound);
+            PlayErrorSound();
             SetProc(expr + L" = ?");
             SetRes(L"错误");
             expr.clear();
