@@ -1,0 +1,23 @@
+name: Build JSQ.exe
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MinGW
+        run: choco install mingw -y
+
+      - name: Compile
+        run: g++ JSQ.cpp -o JSQ.exe -mwindows -lwinmm -municode -std=c++17
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JSQ-exe
+          path: JSQ.exe
